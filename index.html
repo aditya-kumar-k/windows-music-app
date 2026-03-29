@@ -140,6 +140,7 @@ ul {
         <button onclick="next()">⏭</button>
         <button onclick="setA()">A</button>
         <button onclick="setB()">B</button>
+		<button onclick="toggleRepeat()" id="repeatBtn">🔁 All</button>
       </div>
 
       <!-- THEME -->
@@ -170,6 +171,8 @@ let sound = null;
 
 let loopA = null;
 let loopB = null;
+
+let repeatMode = "all"; 
 
 const lyricsFile = path.join(__dirname, "lyrics.json");
 
@@ -364,27 +367,60 @@ function renderTree(node, parent = null) {
 
 function playSongFromTree(song, element) {
 
+  // ⛔ Stop previous sound
   if (sound) sound.stop();
 
+  // 🎵 Create new sound with repeat logic
   sound = new Howl({
     src: [song.path],
-    html5: true
-  });
-  sound.play();
-  document.getElementById("nowPlaying").innerText =
-    song.name.replace(/\.[^/.]+$/, "");
+    html5: true,
 
-  // 🎧 HIGHLIGHT
+    onend: () => {
+
+      if (repeatMode === "one") {
+        sound.play(); // 🔂 repeat same song
+        return;
+      }
+
+      if (repeatMode === "all") {
+        playNextFromTree(); // 🔁 next song
+        return;
+      }
+
+      if (repeatMode === "none") {
+        sound.stop(); // 🚫 stop completely
+        document.getElementById("seekBar").value = 0;
+      }
+
+    }
+  });
+
+  // ▶️ Play
+  sound.play();
+
+  // 🧼 Clean title (remove extension)
+  const cleanName = song.name.replace(/\.[^/.]+$/, "");
+  document.getElementById("nowPlaying").innerText = cleanName;
+
+  // 🎧 Highlight current song
   if (currentElement) {
     currentElement.style.color = "white";
+    currentElement.style.fontWeight = "normal";
   }
 
   element.style.color = "#8a6cff";
   element.style.fontWeight = "bold";
   currentElement = element;
 
+  // 📜 Load lyrics
   loadLyricsByPath(song.path);
 
+  // 🎚 Reset seek bar
+  const bar = document.getElementById("seekBar");
+  bar.value = 0;
+
+  // ⏱ Start seek updater (safe reset)
+  if (window.seekInterval) clearInterval(window.seekInterval);
   startSeek();
 }
 
@@ -446,6 +482,43 @@ document.addEventListener("keydown", (e) => {
       break;
   }
 });
+
+function playNextFromTree() {
+
+  const items = document.querySelectorAll("#songList li");
+
+  let found = false;
+
+  for (let i = 0; i < items.length; i++) {
+    if (items[i] === currentElement) {
+      found = true;
+      continue;
+    }
+
+    if (found && items[i].onclick) {
+      items[i].click();
+      return;
+    }
+  }
+
+  // 🔁 If last song → restart first
+  items[0]?.click();
+}
+
+function toggleRepeat(){
+  if(repeatMode === "all"){
+    repeatMode = "one";
+    document.getElementById("repeatBtn").innerText = "🔂 One";
+  }
+  else if(repeatMode === "one"){
+    repeatMode = "none";
+    document.getElementById("repeatBtn").innerText = "🚫 None";
+  }
+  else{
+    repeatMode = "all";
+    document.getElementById("repeatBtn").innerText = "🔁 All";
+  }
+}
 </script>
 
 </body>
