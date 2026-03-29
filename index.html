@@ -123,6 +123,9 @@ ul {
 
       <!-- SEEK BAR -->
       <input type="range" id="seekBar" min="0" max="100" value="0">
+	  <div id="timeDisplay" style="font-size:12px; margin-top:5px;">
+		0:00 / 0:00
+	  </div>
 
       <!-- CONTROLS -->
       <div>
@@ -237,8 +240,15 @@ function startSeek() {
   if (window.seekInterval) clearInterval(window.seekInterval);
   window.seekInterval = setInterval(()=>{
     if(sound && sound.playing()){
-      let progress = (sound.seek()/sound.duration())*100;
-      bar.value = progress;
+      let current = sound.seek();
+let duration = sound.duration();
+
+let progress = (current / duration) * 100;
+bar.value = progress;
+
+// ⏱ UPDATE TIMER
+document.getElementById("timeDisplay").innerText =
+  formatTime(current) + " / " + formatTime(duration);
 
       // LOOP
       if(loopA !== null && loopB !== null){
@@ -261,9 +271,24 @@ document.getElementById("seekBar").addEventListener("input", function(){
 
 
 // A-B LOOP
-function setA(){ if(sound) loopA = sound.seek(); }
-function setB(){ if(sound) loopB = sound.seek(); }
+function setA(){
+  if(sound){
+    loopA = sound.seek();
+    console.log("A set at:", formatTime(loopA));
 
+    document.getElementById("nowPlaying").innerText +=
+      "  [A: " + formatTime(loopA) + "]";
+  }
+}
+function setB(){
+  if(sound){
+    loopB = sound.seek();
+    console.log("B set at:", formatTime(loopB));
+
+    document.getElementById("nowPlaying").innerText +=
+      "  [B: " + formatTime(loopB) + "]";
+  }
+}
 
 // THEME
 function changeTheme(color){
@@ -369,6 +394,55 @@ function loadLyricsByPath(songPath){
     document.getElementById("lyricsPanel").value = "";
   }
 }
+
+function formatTime(sec){
+  if(!sec) return "0:00";
+  let m = Math.floor(sec / 60);
+  let s = Math.floor(sec % 60);
+  return m + ":" + (s < 10 ? "0"+s : s);
+}
+
+document.addEventListener("keydown", (e) => {
+
+  if(e.target.tagName === "TEXTAREA") return; // don't block typing
+
+  switch(e.code){
+
+    case "Space":
+      e.preventDefault();
+      if(sound && sound.playing()) pause();
+      else play();
+      break;
+
+    case "ArrowRight":
+      if(sound) sound.seek(sound.seek() + 5);
+      break;
+
+    case "ArrowLeft":
+      if(sound) sound.seek(sound.seek() - 5);
+      break;
+
+    case "ArrowUp":
+      next();
+      break;
+
+    case "ArrowDown":
+      prev();
+      break;
+
+    case "KeyS":
+      stop();
+      break;
+
+    case "KeyA":
+      setA();
+      break;
+
+    case "KeyB":
+      setB();
+      break;
+  }
+});
 </script>
 
 </body>
