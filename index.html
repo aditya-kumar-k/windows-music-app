@@ -6,14 +6,16 @@
   <style>
     body {
       margin:0;
-      font-family:sans-serif;
-      background:#0f0f14;
-      color:white;
+	  font-family:sans-serif;
+	  background:#0f0f14;
+	  color:white;
+	  overflow:hidden;
     }
 
     #app {
       display:flex;
       height:100vh;
+	  overflow:hidden;
     }
 
     .sidebar {
@@ -54,12 +56,13 @@
     }
 
     .lyrics {
-  width:320px;
-  background:linear-gradient(180deg, #17171f, #111118);
-  padding:15px;
-  display:flex;
-  flex-direction:column;
-  border-left:1px solid #2a2a35;
+	  width:320px;
+	  background:linear-gradient(180deg, #17171f, #111118);
+	  padding:15px;
+	  display:flex;
+	  flex-direction:column;
+	  border-left:1px solid #2a2a35;
+	  overflow:hidden;
     }
 
     textarea {
@@ -74,6 +77,7 @@
   line-height:1.6;
   font-size:13px;
   border-radius:6px;
+  overflow:auto;
     }
 	
 	button {
@@ -334,7 +338,7 @@ function renderTree(node, parent = null) {
   if (!parent) container.innerHTML = "";
 
   const li = document.createElement("li");
-  li.textContent = node.name;
+  li.textContent = node.name.replace(/\.[^/.]+$/, "");
 
   if (node.type === "folder") {
     li.style.fontWeight = "500";
@@ -366,10 +370,9 @@ function playSongFromTree(song, element) {
     src: [song.path],
     html5: true
   });
-
   sound.play();
-
-  document.getElementById("nowPlaying").innerText = song.name;
+  document.getElementById("nowPlaying").innerText =
+    song.name.replace(/\.[^/.]+$/, "");
 
   // 🎧 HIGHLIGHT
   if (currentElement) {
