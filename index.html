@@ -89,10 +89,19 @@
   background:#6f55ff;
 }
 
-    li {
-      cursor:pointer;
-      margin:4px 0;
-    }
+li {
+  cursor:pointer;
+  margin:4px 0;
+  transition: all 0.2s ease;
+}
+
+li:hover {
+  color: #b8aaff;
+}
+
+ul {
+  padding: 0 0 0 20px;
+}
   </style>
 </head>
 
@@ -159,38 +168,35 @@ const lyricsFile = path.join(__dirname, "lyrics.json");
 
 
 // LOAD SONGS
-function loadSongs(folder) {
-  songs = [];
+let libraryTree = {};
+
+function buildTree(folder) {
   function scan(dir) {
+    const name = path.basename(dir);
+    const node = { name, type: "folder", children: [] };
+
     const files = fs.readdirSync(dir);
 
     files.forEach(file => {
       const full = path.join(dir, file);
       const stat = fs.statSync(full);
 
-      if (stat.isDirectory()) scan(full);
-      else if (/\.(mp3|wav|m4a|flac)$/i.test(file)) {
-        songs.push({ name:file, path:full });
+      if (stat.isDirectory()) {
+        node.children.push(scan(full));
+      } else if (/\.(mp3|wav|m4a|flac)$/i.test(file)) {
+        node.children.push({
+          name: file,
+          path: full,
+          type: "file"
+        });
       }
     });
+
+    return node;
   }
 
-  scan(folder);
-  renderSongs();
-}
-
-
-// RENDER
-function renderSongs() {
-  const list = document.getElementById("songList");
-  list.innerHTML = "";
-
-  songs.forEach((s,i)=>{
-    const li = document.createElement("li");
-    li.textContent = s.name;
-    li.onclick = ()=>playSong(i);
-    list.appendChild(li);
-  });
+  libraryTree = scan(folder);
+  renderTree(libraryTree);
 }
 
 
@@ -292,8 +298,77 @@ function saveLyrics(){
 
 // AUTO LOAD
 window.onload = () => {
-  loadSongs("D:\\\\Music");
+  buildTree("D:\\\\Music");
 };
+
+let currentElement = null;
+
+function renderTree(node, parent = null) {
+  const container = parent || document.getElementById("songList");
+
+  if (!parent) container.innerHTML = "";
+
+  const li = document.createElement("li");
+  li.textContent = node.name;
+
+  if (node.type === "folder") {
+    li.style.fontWeight = "500";
+
+    const ul = document.createElement("ul");
+    ul.style.marginLeft = "10px";
+    ul.style.display = "none";
+
+    li.onclick = () => {
+      ul.style.display = ul.style.display === "none" ? "block" : "none";
+    };
+
+    container.appendChild(li);
+    container.appendChild(ul);
+
+    node.children.forEach(child => renderTree(child, ul));
+
+  } else {
+    li.onclick = () => playSongFromTree(node, li);
+    container.appendChild(li);
+  }
+}
+
+function playSongFromTree(song, element) {
+
+  if (sound) sound.stop();
+
+  sound = new Howl({
+    src: [song.path],
+    html5: true
+  });
+
+  sound.play();
+
+  document.getElementById("nowPlaying").innerText = song.name;
+
+  // 🎧 HIGHLIGHT
+  if (currentElement) {
+    currentElement.style.color = "white";
+  }
+
+  element.style.color = "#8a6cff";
+  element.style.fontWeight = "bold";
+  currentElement = element;
+
+  loadLyricsByPath(song.path);
+
+  startSeek();
+}
+
+function loadLyricsByPath(songPath){
+  try{
+    const data = JSON.parse(fs.readFileSync(lyricsFile));
+    document.getElementById("lyricsPanel").value =
+      data[songPath] || "";
+  }catch{
+    document.getElementById("lyricsPanel").value = "";
+  }
+}
 </script>
 
 </body>
