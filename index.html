@@ -32,6 +32,10 @@
       padding:10px;
       overflow:auto;
     }
+	
+	ul {
+	  padding-left: 10px;
+	}
 
     li {
       margin:5px 0;
@@ -71,9 +75,10 @@
     </div>
   </div>
 
-  <div class="lyrics" id="lyricsPanel">
-    Lyrics here...
-  </div>
+	<div class="lyrics">
+	  <textarea id="lyricsPanel" style="width:100%; height:85%; background:#0f0f14; color:white;"></textarea>
+	  <button onclick="saveCurrentLyrics()">Save Lyrics</button>
+	</div>
 
 </div>
 
@@ -86,6 +91,7 @@ const { shell } = require('electron');
 let songs = [];
 let currentSound = null;
 let playlists = [];
+let currentSong = null;
 
 let sources = {
   Malayalam: "https://koshalworld.com/?s={query}"
@@ -137,10 +143,15 @@ function playSong(song) {
   html5: true
 });
   currentSound.play();
-
   document.getElementById('nowPlaying').innerText = song.name;
+  const saved = loadSavedLyrics();
 
+if (saved[song.path]) {
+  document.getElementById('lyricsPanel').value = saved[song.path];
+} else {
   fetchLyrics(song.name);
+}
+  currentSong = song;
 }
 
 function play() {
@@ -157,11 +168,11 @@ async function fetchLyrics(title) {
     const res = await fetch(`https://lrclib.net/api/search?track=${title}`);
     const data = await res.json();
 
-    document.getElementById('lyricsPanel').innerText =
+    document.getElementById('lyricsPanel').value =
       data[0]?.plainLyrics || "No lyrics";
 
   } catch {
-    document.getElementById('lyricsPanel').innerText = "Lyrics not found";
+    document.getElementById('lyricsPanel').value = "Lyrics not found";
   }
 }
 
@@ -199,7 +210,7 @@ window.onload = () => {
   console.log("Trying to load:", defaultPath);
 
   try {
-    loadSongsRecursive(defaultPath);
+    buildTree(defaultPath);
   } catch (err) {
     console.error("ERROR:", err);
     alert("Failed to load folder. Open console.");
@@ -215,10 +226,10 @@ function renderTree(node, parent = null) {
   li.textContent = node.name;
 
   if (node.type === "folder") {
-    li.style.fontWeight = "bold";
+    li.style.fontWeight = "500";
 
     const ul = document.createElement("ul");
-    ul.style.marginLeft = "15px";
+    ul.style.marginLeft = "7px";
     ul.style.display = "none";
 
     li.onclick = () => {
@@ -234,6 +245,31 @@ function renderTree(node, parent = null) {
     li.onclick = () => playSong(node);
     container.appendChild(li);
   }
+}
+
+const lyricsFile = path.join(__dirname, "lyrics.json");
+
+function loadSavedLyrics() {
+  try {
+    return JSON.parse(fs.readFileSync(lyricsFile));
+  } catch {
+    return {};
+  }
+}
+
+function saveLyrics(songPath, lyrics) {
+  const data = loadSavedLyrics();
+  data[songPath] = lyrics;
+  fs.writeFileSync(lyricsFile, JSON.stringify(data, null, 2));
+}
+
+function saveCurrentLyrics() {
+  if (!currentSong) return;
+
+  const lyrics = document.getElementById("lyricsPanel").value;
+  saveLyrics(currentSong.path, lyrics);
+
+  alert("Lyrics saved ✅");
 }
 </script>
 
