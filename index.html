@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Music Player</title>
+  <style>
+    body { margin:0; font-family:sans-serif; background:#0f0f14; color:white; }
+    #app { display:flex; height:100vh; }
+
+    .sidebar {
+      width:250px;
+      background:#17171f;
+      padding:10px;
+      overflow:auto;
+    }
+
+    .main {
+      flex:1;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .player {
+      flex:1;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+    }
+
+    .lyrics {
+      width:300px;
+      background:#17171f;
+      padding:10px;
+      overflow:auto;
+    }
+
+    li {
+      margin:5px 0;
+      cursor:pointer;
+    }
+
+    li:hover {
+      color:#e8b7b7;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <div class="sidebar">
+    <h3>Library</h3>
+    <ul id="songList"></ul>
+
+    <h3>Playlists</h3>
+    <button onclick="createPlaylist()">+ New</button>
+    <ul id="playlistList"></ul>
+  </div>
+
+  <div class="main">
+    <div class="player">
+      <div>
+        <h2 id="nowPlaying">No song</h2>
+        <button onclick="play()">Play</button>
+        <button onclick="pause()">Pause</button>
+      </div>
+    </div>
+
+    <div>
+      <input id="searchInput" placeholder="Search or download..." />
+      <button onclick="searchSource()">Search Web</button>
+    </div>
+  </div>
+
+  <div class="lyrics" id="lyricsPanel">
+    Lyrics here...
+  </div>
+
+</div>
+
+<script src="node_modules/howler/dist/howler.min.js"></script>
+<script>
+const fs = require('fs');
+const path = require('path');
+const { shell } = require('electron');
+
+let songs = [];
+let currentSound = null;
+let playlists = [];
+
+let sources = {
+  Malayalam: "https://koshalworld.com/?s={query}"
+};
+
+// 🔥 RECURSIVE SCAN
+let libraryTree = {};
+
+function buildTree(folder) {
+  function scan(dir) {
+    const name = path.basename(dir);
+    const node = { name, type: "folder", children: [] };
+
+    try {
+      const files = fs.readdirSync(dir);
+
+      files.forEach(file => {
+        const fullPath = path.join(dir, file);
+        const stat = fs.statSync(fullPath);
+
+        if (stat.isDirectory()) {
+          node.children.push(scan(fullPath));
+        } else if (file.match(/\.(mp3|wav|m4a|flac)$/i)) {
+          node.children.push({
+            name: file,
+            path: fullPath,
+            type: "file"
+          });
+        }
+      });
+
+    } catch (err) {
+      console.error(err);
+    }
+
+    return node;
+  }
+
+  libraryTree = scan(folder);
+  renderTree(libraryTree);
+}
+
+// ▶️ PLAY SONG
+function playSong(song) {
+  if (currentSound) currentSound.stop();
+
+  currentSound = new Howl({
+  src: [song.path],
+  html5: true
+});
+  currentSound.play();
+
+  document.getElementById('nowPlaying').innerText = song.name;
+
+  fetchLyrics(song.name);
+}
+
+function play() {
+  if (currentSound) currentSound.play();
+}
+
+function pause() {
+  if (currentSound) currentSound.pause();
+}
+
+// 📜 LYRICS
+async function fetchLyrics(title) {
+  try {
+    const res = await fetch(`https://lrclib.net/api/search?track=${title}`);
+    const data = await res.json();
+
+    document.getElementById('lyricsPanel').innerText =
+      data[0]?.plainLyrics || "No lyrics";
+
+  } catch {
+    document.getElementById('lyricsPanel').innerText = "Lyrics not found";
+  }
+}
+
+// 📂 PLAYLISTS
+function createPlaylist() {
+  const name = prompt('Playlist name');
+  if (!name) return;
+
+  playlists.push({ name, songs: [] });
+  renderPlaylists();
+}
+
+function renderPlaylists() {
+  const list = document.getElementById('playlistList');
+  list.innerHTML = '';
+
+  playlists.forEach(p => {
+    const li = document.createElement('li');
+    li.textContent = p.name;
+    list.appendChild(li);
+  });
+}
+
+// 🌐 SEARCH
+function searchSource() {
+  const query = document.getElementById('searchInput').value;
+  const url = sources.Malayalam.replace('{query}', encodeURIComponent(query));
+  shell.openExternal(url);
+}
+
+// 🚀 AUTO LOAD YOUR LIBRARY
+window.onload = () => {
+  const defaultPath = "D:\\Music";
+
+  console.log("Trying to load:", defaultPath);
+
+  try {
+    loadSongsRecursive(defaultPath);
+  } catch (err) {
+    console.error("ERROR:", err);
+    alert("Failed to load folder. Open console.");
+  }
+};
+
+function renderTree(node, parent = null) {
+  const container = parent || document.getElementById("songList");
+
+  if (!parent) container.innerHTML = "";
+
+  const li = document.createElement("li");
+  li.textContent = node.name;
+
+  if (node.type === "folder") {
+    li.style.fontWeight = "bold";
+
+    const ul = document.createElement("ul");
+    ul.style.marginLeft = "15px";
+    ul.style.display = "none";
+
+    li.onclick = () => {
+      ul.style.display = ul.style.display === "none" ? "block" : "none";
+    };
+
+    container.appendChild(li);
+    container.appendChild(ul);
+
+    node.children.forEach(child => renderTree(child, ul));
+
+  } else {
+    li.onclick = () => playSong(node);
+    container.appendChild(li);
+  }
+}
+</script>
+
+</body>
+</html>
