@@ -2,9 +2,19 @@
 <html>
 <head>
   <title>Music Player</title>
+
   <style>
-    body { margin:0; font-family:sans-serif; background:#0f0f14; color:white; }
-    #app { display:flex; height:100vh; }
+    body {
+      margin:0;
+      font-family:sans-serif;
+      background:#0f0f14;
+      color:white;
+    }
+
+    #app {
+      display:flex;
+      height:100vh;
+    }
 
     .sidebar {
       width:250px;
@@ -17,260 +27,273 @@
       flex:1;
       display:flex;
       flex-direction:column;
-    }
-
-    .player {
-      flex:1;
-      display:flex;
-      justify-content:center;
       align-items:center;
+      justify-content:center;
     }
 
-    .lyrics {
-      width:300px;
-      background:#17171f;
-      padding:10px;
-      overflow:auto;
+    .player-box {
+      width:60%;
+      text-align:center;
     }
-	
-	ul {
-	  padding-left: 10px;
-	}
 
-    li {
-      margin:5px 0;
+    input[type=range] {
+      width:100%;
+    }
+
+    button {
+      margin:5px;
+      padding:6px 10px;
+      background:#222;
+      color:white;
+      border:none;
       cursor:pointer;
     }
 
-    li:hover {
-      color:#e8b7b7;
+    button:hover {
+      background:#444;
+    }
+
+    .lyrics {
+  width:320px;
+  background:linear-gradient(180deg, #17171f, #111118);
+  padding:15px;
+  display:flex;
+  flex-direction:column;
+  border-left:1px solid #2a2a35;
+    }
+
+    textarea {
+  width:100%;
+  flex:1;
+  background:#0f0f14;
+  color:#e8e8f0;
+  border:none;
+  outline:none;
+  resize:none;
+  padding:10px;
+  line-height:1.6;
+  font-size:13px;
+  border-radius:6px;
+    }
+	
+	button {
+  border-radius:6px;
+}
+
+.lyrics button {
+  margin-top:10px;
+  background:#8a6cff;
+}
+
+.lyrics button:hover {
+  background:#6f55ff;
+}
+
+    li {
+      cursor:pointer;
+      margin:4px 0;
     }
   </style>
 </head>
+
 <body>
 
 <div id="app">
 
+  <!-- LEFT -->
   <div class="sidebar">
     <h3>Library</h3>
     <ul id="songList"></ul>
-
-    <h3>Playlists</h3>
-    <button onclick="createPlaylist()">+ New</button>
-    <ul id="playlistList"></ul>
   </div>
 
+  <!-- CENTER -->
   <div class="main">
-    <div class="player">
-      <div>
-        <h2 id="nowPlaying">No song</h2>
-        <button onclick="play()">Play</button>
-        <button onclick="pause()">Pause</button>
-      </div>
-    </div>
+    <div class="player-box">
 
-    <div>
-      <input id="searchInput" placeholder="Search or download..." />
-      <button onclick="searchSource()">Search Web</button>
+      <h2 id="nowPlaying">No song</h2>
+
+      <!-- SEEK BAR -->
+      <input type="range" id="seekBar" min="0" max="100" value="0">
+
+      <!-- CONTROLS -->
+      <div>
+        <button onclick="prev()">⏮</button>
+        <button onclick="play()">▶</button>
+        <button onclick="pause()">⏸</button>
+        <button onclick="stop()">⏹</button>
+        <button onclick="next()">⏭</button>
+        <button onclick="setA()">A</button>
+        <button onclick="setB()">B</button>
+      </div>
+
+      <!-- THEME -->
+      <div>
+        Theme: <input type="color" onchange="changeTheme(this.value)">
+      </div>
+
     </div>
   </div>
 
-	<div class="lyrics">
-	  <textarea id="lyricsPanel" style="width:100%; height:85%; background:#0f0f14; color:white;"></textarea>
-	  <button onclick="saveCurrentLyrics()">Save Lyrics</button>
-	</div>
+  <!-- RIGHT -->
+  <div class="lyrics">
+    <textarea id="lyricsPanel"></textarea>
+    <button onclick="saveLyrics()">Save Lyrics</button>
+  </div>
 
 </div>
 
 <script src="node_modules/howler/dist/howler.min.js"></script>
+
 <script>
 const fs = require('fs');
 const path = require('path');
-const { shell } = require('electron');
 
 let songs = [];
-let currentSound = null;
-let playlists = [];
-let currentSong = null;
+let currentIndex = 0;
+let sound = null;
 
-let sources = {
-  Malayalam: "https://koshalworld.com/?s={query}"
-};
+let loopA = null;
+let loopB = null;
 
-// 🔥 RECURSIVE SCAN
-let libraryTree = {};
+const lyricsFile = path.join(__dirname, "lyrics.json");
 
-function buildTree(folder) {
+
+// LOAD SONGS
+function loadSongs(folder) {
+  songs = [];
   function scan(dir) {
-    const name = path.basename(dir);
-    const node = { name, type: "folder", children: [] };
+    const files = fs.readdirSync(dir);
 
-    try {
-      const files = fs.readdirSync(dir);
+    files.forEach(file => {
+      const full = path.join(dir, file);
+      const stat = fs.statSync(full);
 
-      files.forEach(file => {
-        const fullPath = path.join(dir, file);
-        const stat = fs.statSync(fullPath);
-
-        if (stat.isDirectory()) {
-          node.children.push(scan(fullPath));
-        } else if (file.match(/\.(mp3|wav|m4a|flac)$/i)) {
-          node.children.push({
-            name: file,
-            path: fullPath,
-            type: "file"
-          });
-        }
-      });
-
-    } catch (err) {
-      console.error(err);
-    }
-
-    return node;
+      if (stat.isDirectory()) scan(full);
+      else if (/\.(mp3|wav|m4a|flac)$/i.test(file)) {
+        songs.push({ name:file, path:full });
+      }
+    });
   }
 
-  libraryTree = scan(folder);
-  renderTree(libraryTree);
+  scan(folder);
+  renderSongs();
 }
 
-// ▶️ PLAY SONG
-function playSong(song) {
-  if (currentSound) currentSound.stop();
 
-  currentSound = new Howl({
-  src: [song.path],
-  html5: true
-});
-  currentSound.play();
-  document.getElementById('nowPlaying').innerText = song.name;
-  const saved = loadSavedLyrics();
+// RENDER
+function renderSongs() {
+  const list = document.getElementById("songList");
+  list.innerHTML = "";
 
-if (saved[song.path]) {
-  document.getElementById('lyricsPanel').value = saved[song.path];
-} else {
-  fetchLyrics(song.name);
-}
-  currentSong = song;
-}
-
-function play() {
-  if (currentSound) currentSound.play();
-}
-
-function pause() {
-  if (currentSound) currentSound.pause();
-}
-
-// 📜 LYRICS
-async function fetchLyrics(title) {
-  try {
-    const res = await fetch(`https://lrclib.net/api/search?track=${title}`);
-    const data = await res.json();
-
-    document.getElementById('lyricsPanel').value =
-      data[0]?.plainLyrics || "No lyrics";
-
-  } catch {
-    document.getElementById('lyricsPanel').value = "Lyrics not found";
-  }
-}
-
-// 📂 PLAYLISTS
-function createPlaylist() {
-  const name = prompt('Playlist name');
-  if (!name) return;
-
-  playlists.push({ name, songs: [] });
-  renderPlaylists();
-}
-
-function renderPlaylists() {
-  const list = document.getElementById('playlistList');
-  list.innerHTML = '';
-
-  playlists.forEach(p => {
-    const li = document.createElement('li');
-    li.textContent = p.name;
+  songs.forEach((s,i)=>{
+    const li = document.createElement("li");
+    li.textContent = s.name;
+    li.onclick = ()=>playSong(i);
     list.appendChild(li);
   });
 }
 
-// 🌐 SEARCH
-function searchSource() {
-  const query = document.getElementById('searchInput').value;
-  const url = sources.Malayalam.replace('{query}', encodeURIComponent(query));
-  shell.openExternal(url);
+
+// PLAY
+function playSong(i) {
+  currentIndex = i;
+
+  if(sound) sound.stop();
+
+  sound = new Howl({
+    src:[songs[i].path],
+    html5:true
+  });
+
+  sound.play();
+
+  document.getElementById("nowPlaying").innerText = songs[i].name;
+
+  loadLyrics();
+
+  startSeek();
 }
 
-// 🚀 AUTO LOAD YOUR LIBRARY
-window.onload = () => {
-  const defaultPath = "D:\\Music";
 
-  console.log("Trying to load:", defaultPath);
+// CONTROLS
+function play(){ if(sound) sound.play(); }
+function pause(){ if(sound) sound.pause(); }
+function stop(){ if(sound) sound.stop(); }
 
-  try {
-    buildTree(defaultPath);
-  } catch (err) {
-    console.error("ERROR:", err);
-    alert("Failed to load folder. Open console.");
+function next(){ if(currentIndex < songs.length-1) playSong(currentIndex+1); }
+function prev(){ if(currentIndex > 0) playSong(currentIndex-1); }
+
+
+// SEEK BAR
+function startSeek() {
+  const bar = document.getElementById("seekBar");
+
+  if (window.seekInterval) clearInterval(window.seekInterval);
+  window.seekInterval = setInterval(()=>{
+    if(sound && sound.playing()){
+      let progress = (sound.seek()/sound.duration())*100;
+      bar.value = progress;
+
+      // LOOP
+      if(loopA !== null && loopB !== null){
+        if(sound.seek() >= loopB){
+          sound.seek(loopA);
+        }
+      }
+    }
+  },500);
+}
+
+
+// USER SEEK
+document.getElementById("seekBar").addEventListener("input", function(){
+  if(sound){
+    let seekTo = (this.value/100)*sound.duration();
+    sound.seek(seekTo);
   }
-};
+});
 
-function renderTree(node, parent = null) {
-  const container = parent || document.getElementById("songList");
 
-  if (!parent) container.innerHTML = "";
+// A-B LOOP
+function setA(){ if(sound) loopA = sound.seek(); }
+function setB(){ if(sound) loopB = sound.seek(); }
 
-  const li = document.createElement("li");
-  li.textContent = node.name;
 
-  if (node.type === "folder") {
-    li.style.fontWeight = "500";
+// THEME
+function changeTheme(color){
+  document.body.style.background = color;
+}
 
-    const ul = document.createElement("ul");
-    ul.style.marginLeft = "7px";
-    ul.style.display = "none";
 
-    li.onclick = () => {
-      ul.style.display = ul.style.display === "none" ? "block" : "none";
-    };
-
-    container.appendChild(li);
-    container.appendChild(ul);
-
-    node.children.forEach(child => renderTree(child, ul));
-
-  } else {
-    li.onclick = () => playSong(node);
-    container.appendChild(li);
+// LYRICS
+function loadLyrics(){
+  try{
+    const data = JSON.parse(fs.readFileSync(lyricsFile));
+    document.getElementById("lyricsPanel").value =
+      data[songs[currentIndex].path] || "";
+  }catch{
+    document.getElementById("lyricsPanel").value = "";
   }
 }
 
-const lyricsFile = path.join(__dirname, "lyrics.json");
+function saveLyrics(){
+  let data = {};
+  try{
+    data = JSON.parse(fs.readFileSync(lyricsFile));
+  }catch{}
 
-function loadSavedLyrics() {
-  try {
-    return JSON.parse(fs.readFileSync(lyricsFile));
-  } catch {
-    return {};
-  }
-}
+  data[songs[currentIndex].path] =
+    document.getElementById("lyricsPanel").value;
 
-function saveLyrics(songPath, lyrics) {
-  const data = loadSavedLyrics();
-  data[songPath] = lyrics;
   fs.writeFileSync(lyricsFile, JSON.stringify(data, null, 2));
+  alert("Saved ✅");
 }
 
-function saveCurrentLyrics() {
-  if (!currentSong) return;
 
-  const lyrics = document.getElementById("lyricsPanel").value;
-  saveLyrics(currentSong.path, lyrics);
-
-  alert("Lyrics saved ✅");
-}
+// AUTO LOAD
+window.onload = () => {
+  loadSongs("D:\\\\Music");
+};
 </script>
 
 </body>
