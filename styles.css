@@ -1,0 +1,102 @@
+body {
+      margin:0;
+	  font-family:sans-serif;
+	  background:#0f0f14;
+	  color:white;
+	  overflow:hidden;
+    }
+
+    #app {
+      display:flex;
+      height:100vh;
+	  overflow:hidden;
+    }
+
+    .sidebar {
+      width:250px;
+      background:#17171f;
+      padding:10px;
+      overflow:auto;
+    }
+
+    .main {
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .player-box {
+      width:60%;
+      text-align:center;
+    }
+
+    input[type=range] {
+      width:100%;
+    }
+
+    button {
+      margin:5px;
+      padding:6px 10px;
+      background:#222;
+      color:white;
+      border:none;
+      cursor:pointer;
+    }
+
+    button:hover {
+      background:#444;
+    }
+
+    .lyrics {
+	  width:320px;
+	  background:linear-gradient(180deg, #17171f, #111118);
+	  padding:15px;
+	  display:flex;
+	  flex-direction:column;
+	  border-left:1px solid #2a2a35;
+	  overflow:hidden;
+    }
+
+    textarea {
+  width:100%;
+  flex:1;
+  background:#0f0f14;
+  color:#e8e8f0;
+  border:none;
+  outline:none;
+  resize:none;
+  padding:10px;
+  line-height:1.6;
+  font-size:13px;
+  border-radius:6px;
+  overflow:auto;
+    }
+	
+	button {
+  border-radius:6px;
+}
+
+.lyrics button {
+  margin-top:10px;
+  background:#8a6cff;
+}
+
+.lyrics button:hover {
+  background:#6f55ff;
+}
+
+li {
+  cursor:pointer;
+  margin:4px 0;
+  transition: all 0.2s ease;
+}
+
+li:hover {
+  color: #b8aaff;
+}
+
+ul {
+  padding: 0 0 0 20px;
+}
