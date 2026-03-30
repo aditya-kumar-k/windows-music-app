@@ -67,7 +67,6 @@ function playSong(i) {
   startSeek();
 }
 
-
 // CONTROLS
 function play(){ if(sound) sound.play(); }
 function pause(){ if(sound) sound.pause(); }
@@ -82,17 +81,20 @@ function next(){
   playNextFromTree();
 }
 
-function prev(){
-  const items = document.querySelectorAll("#songList li");
+function prev() {
+  const items = document.querySelectorAll(".song-item");
 
   for (let i = 0; i < items.length; i++) {
-    if (items[i] === currentElement && i > 0) {
-      items[i - 1].click();
+    if (items[i] === currentElement) {
+      if (i > 0) {
+        items[i - 1].click();
+      } else {
+        items[items.length - 1].click();
+      }
       return;
     }
   }
 }
-
 
 // SEEK BAR
 function startSeek() {
@@ -103,6 +105,8 @@ function startSeek() {
     if(sound && sound.playing()){
       let current = sound.seek();
 let duration = sound.duration();
+
+if (!duration) return;
 
 let progress = (current / duration) * 100;
 bar.value = progress;
@@ -121,7 +125,6 @@ document.getElementById("timeDisplay").innerText =
   },500);
 }
 
-
 // USER SEEK
 document.getElementById("seekBar").addEventListener("input", function(){
   if(sound){
@@ -130,10 +133,7 @@ document.getElementById("seekBar").addEventListener("input", function(){
   }
 });
 
-
 // A-B LOOP
-// A-B LOOP (FINAL CLEAN VERSION)
-
 function setA() {
   if (!sound) return;
 
@@ -172,7 +172,6 @@ function changeTheme(color){
   document.body.style.background = color;
 }
 
-
 // LYRICS
 function loadLyrics(){
   try{
@@ -196,7 +195,6 @@ function saveLyrics(){
   fs.writeFileSync(lyricsFile, JSON.stringify(data, null, 2));
   alert("Saved ✅");
 }
-
 
 // AUTO LOAD
 window.onload = () => {
@@ -230,7 +228,11 @@ function renderTree(node, parent = null) {
     node.children.forEach(child => renderTree(child, ul));
 
   } else {
-    li.onclick = () => playSongFromTree(node, li);
+    li.classList.add("song-item");
+	li.onclick = (e) => {
+	  e.stopPropagation(); // 🔥 prevents folder toggle
+	  playSongFromTree(node, li);
+    };
     container.appendChild(li);
   }
 }
@@ -298,6 +300,7 @@ function playSongFromTree(song, element) {
   // ⏱ Start seek updater (safe reset)
   if (window.seekInterval) clearInterval(window.seekInterval);
   startSeek();
+  bar.max = 100;
 }
 
 function loadLyricsByPath(songPath){
@@ -329,13 +332,21 @@ document.addEventListener("keydown", (e) => {
       else play();
       break;
 
-    case "ArrowRight":
-      if(sound) sound.seek(sound.seek() + 5);
-      break;
+	case "ArrowRight":
+	  if (e.ctrlKey) {
+		next();
+	  } else if (sound) {
+		sound.seek(sound.seek() + 5);
+	  }
+	  break;
 
-    case "ArrowLeft":
-      if(sound) sound.seek(sound.seek() - 5);
-      break;
+	case "ArrowLeft":
+	  if (e.ctrlKey) {
+		prev();
+	  } else if (sound) {
+		sound.seek(sound.seek() - 5);
+	  }
+	  break;
 
     case "ArrowUp":
       next();
@@ -360,25 +371,18 @@ document.addEventListener("keydown", (e) => {
 });
 
 function playNextFromTree() {
-
-  const items = document.querySelectorAll("#songList li");
-
-  let found = false;
+  const items = document.querySelectorAll(".song-item");
 
   for (let i = 0; i < items.length; i++) {
     if (items[i] === currentElement) {
-      found = true;
-      continue;
-    }
-
-    if (found && items[i].onclick) {
-      items[i].click();
+      if (i < items.length - 1) {
+        items[i + 1].click();
+      } else {
+        items[0].click();
+      }
       return;
     }
   }
-
-  // 🔁 If last song → restart first
-  items[0]?.click();
 }
 
 function toggleRepeat(){
@@ -411,6 +415,15 @@ function togglePlay() {
     sound.play();
     updatePlayButton(true);
   }
+}
+
+function updateNowPlaying() {
+  let text = currentTitle || "No song";
+
+  if (loopA !== null) text += ` [A: ${formatTime(loopA)}]`;
+  if (loopB !== null) text += ` [B: ${formatTime(loopB)}]`;
+
+  document.getElementById("nowPlaying").innerText = text;
 }
 
 window.prev = prev;
